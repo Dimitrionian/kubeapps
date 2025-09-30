@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	grpchealth "github.com/bufbuild/connect-grpchealth-go"
 
@@ -76,7 +78,7 @@ func Serve(serveOpts core.ServeOptions) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	gw, err := gatewayMux()
+	gw, err := gatewayMux(serveOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC gateway: %w", err)
 	}
@@ -123,8 +125,26 @@ func Serve(serveOpts core.ServeOptions) error {
 		log.Warning("Using the local Kubeconfig file instead of the actual in-cluster's config. This is not recommended except for development purposes.")
 	}
 
+	// Add CORS middleware with request logging
+	corsHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Infof("Request: %s %s - Headers: %v - Query: %v", r.Method, r.URL.Path, r.Header.Get("Content-Type"), r.URL.RawQuery)
+			if r.Method == "POST" {
+				log.Infof("POST Body available for: %s", r.URL.Path)
+			}
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-agent, x-grpc-web, grpc-timeout")
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	log.Infof("Starting server on %q", listenAddr)
-	if err := http.ListenAndServe(listenAddr, h2c.NewHandler(mux, &http2.Server{})); err != nil {
+	if err := http.ListenAndServe(listenAddr, corsHandler(h2c.NewHandler(mux, &http2.Server{}))); err != nil {
 		log.Fatalf("Failed to server: %+v", err)
 	}
 
@@ -173,7 +193,7 @@ func registerRepositoriesServiceServer(mux *http.ServeMux, pluginsServer *plugin
 }
 
 // Create a gateway mux that does not emit unpopulated fields.
-func gatewayMux() (*runtime.ServeMux, error) {
+func gatewayMux(serveOpts core.ServeOptions) (*runtime.ServeMux, error) {
 	gwmux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
 			MarshalOptions: protojson.MarshalOptions{
@@ -202,9 +222,25 @@ func gatewayMux() (*runtime.ServeMux, error) {
 		return nil, fmt.Errorf("failed to serve: %v", err)
 	}
 
-	svcRestConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve in cluster configuration: %v", err)
+	var svcRestConfig *rest.Config
+
+	if serveOpts.UnsafeLocalDevKubeconfig {
+		// Use local kubeconfig for development
+		kubeconfigBytes, err := os.ReadFile(os.Getenv("KUBECONFIG"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read KUBECONFIG file: %v", err)
+		}
+		var configErr error
+		svcRestConfig, configErr = clientcmd.RESTConfigFromKubeConfig(kubeconfigBytes)
+		if configErr != nil {
+			return nil, fmt.Errorf("failed to create config from kubeconfig: %v", configErr)
+		}
+	} else {
+		var configErr error
+		svcRestConfig, configErr = rest.InClusterConfig()
+		if configErr != nil {
+			return nil, fmt.Errorf("failed to retrieve in cluster configuration: %v", configErr)
+		}
 	}
 	coreClientSet, err := kubernetes.NewForConfig(svcRestConfig)
 	if err != nil {
