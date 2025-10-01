@@ -32,8 +32,21 @@ echo "✅ Using PostgreSQL: $POSTGRES_USER@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGR
 # Start backend API server
 cd cmd/kubeapps-apis
 export POD_NAMESPACE=${POD_NAMESPACE:-default}
+
+# Asset Syncer variables
 export ASSET_SYNCER_DB_URL="$POSTGRES_HOST:$POSTGRES_PORT"
 export ASSET_SYNCER_DB_NAME="$POSTGRES_DB"
 export ASSET_SYNCER_DB_USERNAME="$POSTGRES_USER"
 export ASSET_SYNCER_DB_USERPASSWORD="$POSTGRES_PASSWORD"
-KUBECONFIG="$KUBECONFIG" ./kubeapps-apis serve --port=50051 --unsafe-local-dev-kubeconfig
+
+# Helm plugin variables
+export DB_URL="$POSTGRES_HOST:$POSTGRES_PORT"
+export DB_NAME="$POSTGRES_DB"
+export DB_USERNAME="$POSTGRES_USER"
+export DB_PASSWORD="$POSTGRES_PASSWORD"
+export PGPASSWORD="$POSTGRES_PASSWORD"
+
+# Global namespace for Helm repositories
+export HELM_GLOBAL_NAMESPACE="default"
+export GLOBAL_PACKAGING_NAMESPACE="default"
+KUBECONFIG="$KUBECONFIG" ./kubeapps-apis serve --port=50051 --unsafe-local-dev-kubeconfig --global-repos-namespace=default --plugin-config-path=../../helm-plugin-config.yaml

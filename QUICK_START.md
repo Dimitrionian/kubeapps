@@ -197,6 +197,33 @@ cmd/kubeapps-apis/
 
 🎉 **Результат**: Полностью рабочий Kubeapps с доступом к вашему Kubernetes кластеру!
 
+### Синхронизация Helm репозиториев
+
+Если каталог пустой, нужно синхронизировать репозитории:
+
+```bash
+# Создать репозитории в кластере
+kubectl create -f - <<EOF
+apiVersion: kubeapps.com/v1alpha1
+kind: AppRepository
+metadata:
+  name: bitnami
+  namespace: default
+spec:
+  url: https://charts.bitnami.com/bitnami
+  type: helm
+EOF
+
+# Синхронизировать репозитории в PostgreSQL
+./sync-repos.sh
+
+# Подождать 1-2 минуты и обновить UI
+# Необязательно синхронизировать все репозитории из bitnami, это
+# долгий процесс, синхронизацию можно прервать в любой момент
+```
+
+**Результат**: Каталог заполнится популярными приложениями (PostgreSQL, MySQL, Redis, WordPress, etc.)
+
 ### Что должно работать
 
 ✅ **Аутентификация**: Вход по токену  
@@ -249,3 +276,9 @@ go build -o kubeapps-apis .
 6. **Токен аутентификации**: Создание service account в namespace default
 
 **Статус**: ✅ ПОЛНОСТЬЮ РАБОЧЕЕ РЕШЕНИЕ
+
+## Скрипты для управления
+
+- `./start-back.sh` - Запуск backend API
+- `./start-front.sh` - Запуск frontend
+- `./sync-repos.sh` - Синхронизация Helm репозиториев

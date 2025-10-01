@@ -126,6 +126,10 @@ func NewServer(configGetter core.KubernetesConfigGetter, globalPackagingCluster 
 	if pluginConfig.GlobalPackagingNamespace != "" {
 		effectiveGlobalPackagingNamespace = pluginConfig.GlobalPackagingNamespace
 	}
+	// HACK: Force default namespace if empty
+	if effectiveGlobalPackagingNamespace == "" {
+		effectiveGlobalPackagingNamespace = "default"
+	}
 
 	log.Infof("+helm NewServer effective globalPackagingNamespace: [%v]", effectiveGlobalPackagingNamespace)
 
@@ -166,7 +170,7 @@ func NewServer(configGetter core.KubernetesConfigGetter, globalPackagingCluster 
 		},
 		manager:                  manager,
 		kubeappsNamespace:        kubeappsNamespace,
-		globalPackagingNamespace: globalPackagingNamespace,
+		globalPackagingNamespace: effectiveGlobalPackagingNamespace,
 		globalPackagingCluster:   globalPackagingCluster,
 		chartClientFactory:       &utils.ChartClientFactory{},
 		pluginConfig:             pluginConfig,
