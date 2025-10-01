@@ -49,4 +49,4 @@ export PGPASSWORD="$POSTGRES_PASSWORD"
 # Global namespace for Helm repositories
 export HELM_GLOBAL_NAMESPACE="default"
 export GLOBAL_PACKAGING_NAMESPACE="default"
-KUBECONFIG="$KUBECONFIG" ./kubeapps-apis serve --port=50051 --unsafe-local-dev-kubeconfig --global-repos-namespace=default --plugin-config-path=../../helm-plugin-config.yaml
+KUBECONFIG="$KUBECONFIG" ./kubeapps-apis serve --port=50051 --unsafe-local-dev-kubeconfig --global-repos-namespace=default
