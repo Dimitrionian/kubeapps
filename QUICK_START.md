@@ -155,31 +155,12 @@ kubectl create clusterrolebinding kubeapps-dev --clusterrole=cluster-admin --ser
 ./start-back.sh
 
 # Терминал 2: Frontend
-cd dashboard
-yarn start
+./start-front.sh
 
 # Получить токен для входа
 kubectl create token kubeapps-dev -n default
 
 # Открыть http://localhost:3000 и вставить токен
-```
-
-### 4. Использование существующего кластера
-
-#### Вариант A: С готовым KUBECONFIG (рекомендуется)
-
-```bash
-# Сохраните ваш KUBECONFIG файл
-export KUBECONFIG=/path/to/your/kubeconfig
-
-# Проверка подключения
-kubectl get nodes
-
-# Запуск backend API с вашим кластером
-cd cmd/kubeapps-apis
-./kubeapps-apis serve --port=50051 --unsafe-local-dev-kubeconfig
-
-# Dashboard уже работает на http://localhost:3000
 ```
 
 ### Структура для кастомизации
