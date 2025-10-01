@@ -25,27 +25,16 @@ import (
 func (s *Server) CheckNamespaceExists(ctx context.Context, r *connect.Request[v1alpha1.CheckNamespaceExistsRequest]) (*connect.Response[v1alpha1.CheckNamespaceExistsResponse], error) {
 	namespace := r.Msg.GetContext().GetNamespace()
 	cluster := r.Msg.GetContext().GetCluster()
-	log.InfoS("+resources CheckNamespaceExists", "cluster", cluster, "namespace", namespace)
 
-	log.InfoS("+resources Getting typed client")
-	auth := r.Header().Get("Authorization")
-	if auth != "" {
-		log.InfoS("+resources Authorization header present", "length", len(auth))
-	} else {
-		log.InfoS("+resources No authorization header found")
-	}
 	typedClient, err := s.clientGetter.Typed(r.Header(), cluster)
 	if err != nil {
 		log.ErrorS(err, "+resources Failed to get typed client")
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("Unable to get the k8s client: '%w'", err))
 	}
 
-	log.InfoS("+resources Getting namespace")
 	_, err = typedClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 	if err != nil {
-		log.ErrorS(err, "+resources Failed to get namespace")
 		if errors.IsNotFound(err) {
-			log.InfoS("+resources Namespace not found, returning false")
 			return connect.NewResponse(&v1alpha1.CheckNamespaceExistsResponse{
 				Exists: false,
 			}), nil
@@ -53,7 +42,6 @@ func (s *Server) CheckNamespaceExists(ctx context.Context, r *connect.Request[v1
 		return nil, connecterror.FromK8sError("get", "Namespace", namespace, err)
 	}
 
-	log.InfoS("+resources Namespace exists, returning true")
 	return connect.NewResponse(&v1alpha1.CheckNamespaceExistsResponse{
 		Exists: true,
 	}), nil
