@@ -25,10 +25,10 @@ import (
 func (s *Server) CheckNamespaceExists(ctx context.Context, r *connect.Request[v1alpha1.CheckNamespaceExistsRequest]) (*connect.Response[v1alpha1.CheckNamespaceExistsResponse], error) {
 	namespace := r.Msg.GetContext().GetNamespace()
 	cluster := r.Msg.GetContext().GetCluster()
-	log.InfoS("+resources CheckNamespaceExists", "cluster", cluster, "namespace", namespace)
 
 	typedClient, err := s.clientGetter.Typed(r.Header(), cluster)
 	if err != nil {
+		log.ErrorS(err, "+resources Failed to get typed client")
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("Unable to get the k8s client: '%w'", err))
 	}
 

@@ -320,7 +320,21 @@ func createConfigGetterWithParams(inClusterConfig *rest.Config, serveOpts core.S
 	return func(headers http.Header, cluster string) (*rest.Config, error) {
 		log.V(4).Infof("+clientGetter.GetClient")
 		var err error
-		token, err := extractToken(headers)
+		var token string
+
+		if serveOpts.UnsafeLocalDevKubeconfig {
+			// In unsafe dev mode, use the kubeconfig directly without token
+			config := *inClusterConfig
+			if serveOpts.QPS > 0.0 {
+				config.QPS = serveOpts.QPS
+			}
+			if serveOpts.Burst > 0 {
+				config.Burst = serveOpts.Burst
+			}
+			return &config, nil
+		}
+
+		token, err = extractToken(headers)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("Invalid authorization metadata: %w", err))
 		}

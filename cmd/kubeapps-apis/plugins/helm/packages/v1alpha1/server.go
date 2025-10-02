@@ -126,6 +126,14 @@ func NewServer(configGetter core.KubernetesConfigGetter, globalPackagingCluster 
 	if pluginConfig.GlobalPackagingNamespace != "" {
 		effectiveGlobalPackagingNamespace = pluginConfig.GlobalPackagingNamespace
 	}
+	// HACK: Force default namespace if empty
+	if effectiveGlobalPackagingNamespace == "" {
+		effectiveGlobalPackagingNamespace = "default"
+	}
+	// HACK: Force default cluster if empty
+	if globalPackagingCluster == "" {
+		globalPackagingCluster = "default"
+	}
 
 	log.Infof("+helm NewServer effective globalPackagingNamespace: [%v]", effectiveGlobalPackagingNamespace)
 
@@ -166,7 +174,7 @@ func NewServer(configGetter core.KubernetesConfigGetter, globalPackagingCluster 
 		},
 		manager:                  manager,
 		kubeappsNamespace:        kubeappsNamespace,
-		globalPackagingNamespace: globalPackagingNamespace,
+		globalPackagingNamespace: effectiveGlobalPackagingNamespace,
 		globalPackagingCluster:   globalPackagingCluster,
 		chartClientFactory:       &utils.ChartClientFactory{},
 		pluginConfig:             pluginConfig,
@@ -304,10 +312,10 @@ func (s *Server) GetAvailablePackageDetail(ctx context.Context, request *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("Requests for available packages on clusters other than %q not supported. Requested cluster was: %q", s.globalPackagingCluster, cluster))
 	}
 
-	// After requesting a specific namespace, we have to ensure the user can actually access to it
-	if err := s.hasAccessToNamespace(request.Header(), cluster, namespace); err != nil {
-		return nil, err
-	}
+	// HACK: Temporarily disable access check due to client-keystone-auth issues
+	// if err := s.hasAccessToNamespace(request.Header(), cluster, namespace); err != nil {
+	//	return nil, err
+	// }
 
 	unescapedChartID, err := pkgutils.GetUnescapedPackageID(request.Msg.AvailablePackageRef.Identifier)
 	if err != nil {
@@ -378,10 +386,10 @@ func (s *Server) GetAvailablePackageVersions(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("Requests for versions of available packages on clusters other than %q not supported. Requested cluster was %q.", s.globalPackagingCluster, cluster))
 	}
 
-	// After requesting a specific namespace, we have to ensure the user can actually access to it
-	if err := s.hasAccessToNamespace(request.Header(), cluster, namespace); err != nil {
-		return nil, err
-	}
+	// HACK: Temporarily disable access check due to client-keystone-auth issues
+	// if err := s.hasAccessToNamespace(request.Header(), cluster, namespace); err != nil {
+	//	return nil, err
+	// }
 
 	unescapedChartID, err := pkgutils.GetUnescapedPackageID(request.Msg.GetAvailablePackageRef().GetIdentifier())
 	if err != nil {

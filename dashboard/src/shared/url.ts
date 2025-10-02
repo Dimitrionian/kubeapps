@@ -157,7 +157,7 @@ export const api = {
       `apis/operators/namespaces/${namespace}/operator/${name}/logo`,
   },
 
-  kubeappsapis: "apis",
+  kubeappsapis: process.env.REACT_APP_API_BASE_URL || "apis",
   config: "config.json",
   custom_locale: "custom_locale.json",
 };

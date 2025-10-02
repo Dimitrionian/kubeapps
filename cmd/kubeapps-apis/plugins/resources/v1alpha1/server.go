@@ -60,6 +60,9 @@ type Server struct {
 	// queries the k8s API for a REST mapper.
 	kindToResource func(meta.RESTMapper, schema.GroupVersionKind) (schema.GroupVersionResource, meta.RESTScopeName, error)
 
+	// configGetter to create REST mapper when needed
+	configGetter core.KubernetesConfigGetter
+
 	// pluginConfig Resources plugin configuration values
 	pluginConfig *common.ResourcesPluginConfig
 
@@ -71,10 +74,15 @@ type Server struct {
 // createRESTMapper returns a rest mapper configured with the APIs of the
 // local k8s API server. This is used to convert between the GroupVersionKinds
 // of the resource references to the GroupVersionResource used by the API server.
-func createRESTMapper(clientQPS float32, clientBurst int) (meta.RESTMapper, error) {
-	config, err := rest.InClusterConfig()
+func createRESTMapper(configGetter core.KubernetesConfigGetter, clientQPS float32, clientBurst int) (meta.RESTMapper, error) {
+	// For initialization, try to get config without auth headers first
+	config, err := configGetter(nil, "")
 	if err != nil {
-		return nil, err
+		// Fallback to in-cluster config for initialization
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
 	// To use the config with RESTClientFor, extra fields are required.
 	// See https://github.com/kubernetes/client-go/issues/657#issuecomment-842960258
@@ -101,14 +109,12 @@ func createRESTMapper(clientQPS float32, clientBurst int) (meta.RESTMapper, erro
 }
 
 func NewServer(configGetter core.KubernetesConfigGetter, clientQPS float32, clientBurst int, pluginConfigPath string, clustersConfig kube.ClustersConfig, localPort int) (*Server, error) {
-	mapper, err := createRESTMapper(clientQPS, clientBurst)
-	if err != nil {
-		return nil, err
-	}
+	// Don't create REST mapper during initialization - create it lazily when needed
 
 	// If no config is provided, we default to the existing values for backwards compatibility.
 	pluginConfig := common.NewDefaultPluginConfig()
 	if pluginConfigPath != "" {
+		var err error
 		pluginConfig, err = common.ParsePluginConfig(pluginConfigPath)
 		if err != nil {
 			log.Fatalf("%s", err)
@@ -141,7 +147,8 @@ func NewServer(configGetter core.KubernetesConfigGetter, clientQPS float32, clie
 		corePackagesClientGetter: func() (pkgsConnectV1alpha1.PackagesServiceClient, error) {
 			return pkgsConnectV1alpha1.NewPackagesServiceClient(http.DefaultClient, fmt.Sprintf("http://localhost:%d/", localPort)), nil
 		},
-		restMapper: mapper,
+		restMapper:   nil, // Will be created lazily
+		configGetter: configGetter,
 		kindToResource: func(mapper meta.RESTMapper, gvk schema.GroupVersionKind) (schema.GroupVersionResource, meta.RESTScopeName, error) {
 			mapping, err := mapper.RESTMapping(gvk.GroupKind())
 			if err != nil {
@@ -265,7 +272,11 @@ func (s *Server) GetResources(ctx context.Context, r *connect.Request[v1alpha1.G
 
 		// We need to get or watch a different endpoint depending on
 		// the scope of the resource (namespaced or not).
-		gvr, scopeName, err := s.kindToResource(s.restMapper, gvk)
+		restMapper, err := s.getRESTMapper()
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("Unable to get REST mapper: %w", err))
+		}
+		gvr, scopeName, err := s.kindToResource(restMapper, gvk)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("Unable to map group-kind %v to resource: %w", gvk.GroupKind(), err))
 		}
@@ -469,4 +480,19 @@ func resourceRefsEqual(r1, r2 *pkgsGRPCv1alpha1.ResourceRef) bool {
 		r1.Kind == r2.Kind &&
 		r1.Namespace == r2.Namespace &&
 		r1.Name == r2.Name
+}
+
+// getRESTMapper returns the REST mapper, creating it if needed
+func (s *Server) getRESTMapper() (meta.RESTMapper, error) {
+	if s.restMapper != nil {
+		return s.restMapper, nil
+	}
+
+	mapper, err := createRESTMapper(s.configGetter, s.clientQPS, 15)
+	if err != nil {
+		return nil, err
+	}
+
+	s.restMapper = mapper
+	return s.restMapper, nil
 }
