@@ -22,7 +22,7 @@ dashboard/public/clr-ui-dark.min.css*
 dashboard/public/clr-ui.min.css*
 .env
 .env.local
-.so
+*.so
 
 # Compiled binaries
 cmd/kubeapps-apis/kubeapps-apis
