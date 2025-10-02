@@ -15,6 +15,11 @@
       "enabled": false
     }
   },
+  "versionsInSummary": {
+    "major": 1,
+    "minor": 1,
+    "patch": 1
+  },
   "theme": "light",
   "remoteComponentsUrl": "",
   "customAppViews": [],

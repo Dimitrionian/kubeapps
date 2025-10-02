@@ -33,13 +33,13 @@ cd cmd/asset-syncer
 # Set PostgreSQL password environment variable
 export PGPASSWORD="$DB_PASS"
 
-# Sync Bitnami repository (самый популярный)
-echo "🔄 Syncing Bitnami repository..."
-./asset-syncer sync --database-url="$DB_URL" --database-name="$DB_NAME" --database-user="$DB_USER" --namespace=default bitnami https://charts.bitnami.com/bitnami helm
+# Sync Stable repository (надежный и стабильный)
+echo "🔄 Syncing Stable repository..."
+./asset-syncer sync --database-url="$DB_URL" --database-name="$DB_NAME" --database-user="$DB_USER" --namespace=default stable https://charts.helm.sh/stable helm
 
-# Можно добавить другие репозитории по необходимости:
-# echo "🔄 Syncing Stable repository..."
-# ./asset-syncer sync --database-url="$DB_URL" --database-name="$DB_NAME" --database-user="$DB_USER" --namespace=default stable https://charts.helm.sh/stable helm
+# Sync Ingress-nginx repository (популярный и рабочий)
+echo "🔄 Syncing Ingress-nginx repository..."
+./asset-syncer sync --database-url="$DB_URL" --database-name="$DB_NAME" --database-user="$DB_USER" --namespace=default ingress-nginx https://kubernetes.github.io/ingress-nginx helm
 
 echo "✅ Repository synchronization completed!"
 echo "📊 Checking PostgreSQL data..."
